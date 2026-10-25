@@ -1,14 +1,13 @@
-#what_we_are_covering = 
-#{
+#what_we_are_covering = {
 # 1: "Creer la base de donnée, choisir nos données et create our cas", 
 # 2: "Build model, the way to adjust automaticly parameters to our cas base on our training data",
 # 3: "Fitting the model to data (training)",
-# 4: "..."
-#}
+# 4: "..."}
 #---------------------------------------------
 
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
 X = np.arange(0, 1, 0.01)
 split = 80
@@ -47,57 +46,83 @@ class LinearRegressionModel():
         self.init_weights = np.random.randn(numberLayers*numberNeuronesPerLayers)  # or np.random.randn(numberLayers, numberNeuronesPerLayers) ?
         self.init_bias = np.random.randn(numberLayers*numberNeuronesPerLayers)
 
-    def forward(self, x):
+    def init_forward(self, x):
         return self.init_weights * x + self.init_bias
+
+    def forward(self, x, w, b):
+        return w * x + b
 
 model_0 = LinearRegressionModel()
 
-Y_init_prevision = model_0.forward(X_train)
-Y_real_test = model_0.forward(X_test)
+Y_correct_prediction = model_0.init_forward(X_train)
+Y_real_test = model_0.init_forward(X_test)
 
 #---------------------------------------------
 print(model_0.init_weights, model_0.init_bias)
-print(Y_init_prevision)
-plot_predictions(X_train, Y_init_prevision, X_test, Y_real_test);
+print(Y_correct_prediction)
+#plot_predictions(X_train, Y_correct_prediction, X_test, Y_real_test);
 #---------------------------------------------
 
 class LearningClass():
-    def __init__(self, epochs = 100, stop_precision = 0.05, learning_rate = 0.02, frequency_save = 30):
+    def __init__(self, epochs = 100, stop_precision = 0.05, learning_rate = 0.02, frequency_print = 10):
         self.epochs = epochs
         self.stop_precision = stop_precision
         self.learning_rate = learning_rate
-        self.frequency_save = frequency_save
-        self.list_bias = []
-        self.list_weight = []
+        self.frequency_print = frequency_print
 
-    def learningLoop(self, epochs, frequency_save, list_weight, list_bias):
-      # for epoch in range(epochs):
+        self.list_bias = [np.random.randn()]
+        self.list_weight = [np.random.randn()]
 
-      #   # 1. Forward pass with only X_train
-      #   Y_pred = model_0(X_train)
-        
-      #   # 2. Calculate the loss
-      #   loss = loss_fn(Y_pred, Y_train)
-        
-      #   # 3. Optimizer zero grad
-      #   optimizer.zero_grad()
-        
-      #   # 4. Perform backpropagation on the loss, calculate grad of each parameter
-      #   loss.backward()
-        
-      #   # 5. Step the optimizer, perform gradient descent and adjust parameters
-      #   optimizer.step() # by default, the optimizer accumulate through the loop so we have to zero them #3
+    def loss_fn(self, tmp, real):   # available method = {"SMAE":SMAE(), "MSE":...}
+        lossS = []
+        for i, j in zip(tmp, real):     # /!\ zip
+            lossS.append((i-j)**2)   
+        return np.average(lossS)
+    
+    def backward_fn(self, tmp, real):
+        # every method of backward is linked to the loss_fn method SMAE, MSE...
 
-          # if (epoch % self.frequency_save == 0):
-          #     list_weight.append()
-          #     list_bias.append()
+        # derivate partial loss by weight and bias, example with weight :
+        # loss = (i-j)**2 =
+        # ([list_bias[-1]+X_test*list_weight[-1]] - Y_correct_prediction)**2
+        # so by derivant par / à weight :
+        # 2 * X_test * ([list_bias[-1]+X_test*list_weight[-1]] - Y_correct_prediction)
+        # = 2 * X_test * erreur
 
-      return list_weight[-1], list_bias[-1]
+        error = tmp - real
+        grad_weight = np.average(error * X_train) * 2
+        grad_bias = np.average(error) * 2
+        return grad_weight, grad_bias
+    
+    def optimizerStep(self, backward):
+        new_w = self.list_weight[-1] - self.learning_rate*backward[0]    # available method = {"SGD":, "Adams":...}
+        new_b = self.list_bias[-1] - self.learning_rate*backward[1]
+        return new_w, new_b
+
+    def learningLoop(self):
+        for epoch in range(self.epochs):
+            # 1. Forward pass with only X_train
+            Y_tmp_predition = model_0.forward(X_train, self.list_weight[-1], self.list_bias[-1])
+        
+            # 2. Calculate the loss
+            loss = self.loss_fn(Y_tmp_predition, Y_correct_prediction)
+        
+            # 3. Optimizer zero grad only with nn
+        
+            # 4. Perform backpropagation on the loss, calculate grad of each parameter
+            backward = self.backward_fn(Y_tmp_predition, Y_correct_prediction)
+        
+            # 5. Step the optimizer, perform gradient descent and adjust parameters
+            new_w, new_b = self.optimizerStep(backward)
+
+            self.list_weight.append(new_w)
+            self.list_bias.append(new_b)
+
+            if (epoch % self.frequency_print == 0):
+                print(f"Epoch {epoch}: loss = {loss}, weight = {self.list_weight[-1]}, bias = {self.list_bias[-1]}")
+                Y_real_test = model_0.forward(X_test, self.list_weight[-1], self.list_bias[-1])
+                plot_predictions(X_train, Y_correct_prediction, X_test, Y_real_test)
 
         
 myFirstLearning = LearningClass()
-[final_weight, final_bias] = myFirstLearning.learningLoop()
-
-#---------------------------------------------
-print(final_weight, final_bias)
-#---------------------------------------------
+myFirstLearning.learningLoop()
